@@ -1,0 +1,143 @@
+import sqlite3
+
+DB_NAME = "students.db"
+
+def connect_db():
+    return sqlite3.connect(DB_NAME)
+
+def create_table(conn):
+    query = """
+    CREATE TABLE IF NOT EXISTS students (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        grade TEXT NOT NULL,
+        email TEXT NOT NULL
+    );
+    """
+    conn.execute(query)
+    conn.commit()
+
+def prompt_int(prompt):
+    while True:
+        try:
+            return int(input(prompt).strip())
+        except ValueError:
+            print("ID must be an integer.")
+
+def prompt_email(prompt):
+    while True:
+        email = input(prompt).strip()
+        if "@" in email and len(email) >= 3:
+            return email
+        print("Invalid email. Must contain '@'.")
+
+def add_student(conn):
+    try:
+        name = input("Name: ").strip()
+        grade = input("Grade: ").strip()
+        email = prompt_email("Email: ")
+
+        conn.execute(
+            "INSERT INTO students (name, grade, email) VALUES (?, ?, ?);",
+            (name, grade, email)
+        )
+        conn.commit()
+        print("Student added.")
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+def view_students(conn):
+    try:
+        rows = conn.execute("SELECT id, name, grade, email FROM students ORDER BY id;").fetchall()
+        if not rows:
+            print("No students found.")
+            return
+        for r in rows:
+            print(f"ID: {r[0]} | Name: {r[1]} | Grade: {r[2]} | Email: {r[3]}")
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+def update_student(conn):
+    try:
+        student_id = prompt_int("Enter student ID to update: ")
+
+        existing = conn.execute(
+            "SELECT id FROM students WHERE id = ?;",
+            (student_id,)
+        ).fetchone()
+
+        if not existing:
+            print("No student with that ID.")
+            return
+
+        name = input("New name: ").strip()
+        grade = input("New grade: ").strip()
+        email = prompt_email("New email: ")
+
+        conn.execute(
+            "UPDATE students SET name = ?, grade = ?, email = ? WHERE id = ?;",
+            (name, grade, email, student_id)
+        )
+        conn.commit()
+        print("Student updated.")
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+def delete_student(conn):
+    try:
+        student_id = prompt_int("Enter student ID to delete: ")
+
+        row = conn.execute(
+            "SELECT id, name, grade, email FROM students WHERE id = ?;",
+            (student_id,)
+        ).fetchone()
+
+        if not row:
+            print("No student with that ID.")
+            return
+
+        print(f"About to delete: ID {row[0]} | {row[1]} | {row[2]} | {row[3]}")
+        confirm = input("Type 'y' to confirm delete: ").strip().lower()
+        if confirm != "y":
+            print("Delete cancelled.")
+            return
+
+        conn.execute("DELETE FROM students WHERE id = ?;", (student_id,))
+        conn.commit()
+        print("Student deleted.")
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+
+def menu():
+    print("\nStudent Records (SQLite)")
+    print("1) Add student")
+    print("2) View students")
+    print("3) Update student")
+    print("4) Delete student")
+    print("5) Exit")
+
+def main():
+    conn = connect_db()
+    try:
+        create_table(conn)
+        while True:
+            menu()
+            choice = input("Choose (1-5): ").strip()
+            if choice == "1":
+                add_student(conn)
+            elif choice == "2":
+                view_students(conn)
+            elif choice == "3":
+                update_student(conn)
+            elif choice == "4":
+                delete_student(conn)
+            elif choice == "5":
+                print("Goodbye.")
+                break
+            else:
+                print("Invalid option.")
+    finally:
+        conn.close()
+
+if __name__ == "__main__":
+    main()
